@@ -1,10 +1,4 @@
 #include "i2cdevice.h"
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/ioctl.h>
-#include <linux/i2c-dev.h>
-#include <iostream>
-#include <cstdlib>
 
 I2CDevice::I2CDevice(uint8_t bus, uint8_t device)
     : deviceAddress(device) { 
@@ -76,43 +70,37 @@ bool I2CDevice::writeRegister(uint8_t reg, const uint8_t *data, uint8_t length, 
     return true;
 }
 
-bool I2CDevice::readRegister(uint8_t reg, uint32_t &value, uint8_t bytes) {
+bool I2CDevice::readRegister(uint8_t reg, uint8_t* value, uint8_t bytes, bool err) {
     if (bytes < 1 || bytes > 32) {
-    	if (err) {
-        	std::cerr << "Invalid byte count for readRegister." << std::endl;
-        	std::exit(EXIT_FAILURE); 
-    	}
+        if (err) {
+            std::cerr << "Invalid byte count for readRegister." << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
         return false;
     }
 
     if (ioctl(fd, I2C_SLAVE, deviceAddress) < 0) {
-    	if (err) {
-        	std::cerr << "Failed to set the I2C device address." << std::endl;
-        	std::exit(EXIT_FAILURE); 
-    	}
+        if (err) {
+            std::cerr << "Failed to set the I2C device address." << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
         return false;
     }
 
     if (write(fd, &reg, 1) != 1) {
-    	if (err) {
-        	std::cerr << "Failed to write the register address to the I2C device." << std::endl;
-        	std::exit(EXIT_FAILURE); 
-    	}
+        if (err) {
+            std::cerr << "Failed to write the register address to the I2C device." << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
         return false;
     }
-
-    uint8_t buffer[32] = {0};
-    if (read(fd, buffer, bytes) != bytes) {
-    	if (err) {
-        	std::cerr << "Failed to read from the I2C device." << std::endl;
-        	std::exit(EXIT_FAILURE); 
-    	}
+    usleep(10);
+    if (read(fd, value, bytes) != bytes) {
+        if (err) {
+            std::cerr << "Failed to read from the I2C device." << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
         return false;
-    }
-
-    value = 0;
-    for (int i = 0; i < bytes; i++) {
-        value |= (static_cast<uint32_t>(buffer[i]) << (8 * (bytes - i - 1)));
     }
 
     return true;
